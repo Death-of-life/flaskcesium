@@ -88,7 +88,7 @@ document.addEventListener("DOMContentLoaded", function () {
                             </tr>
                             <tr>
                                 <th>Wind Speed</th>
-                                <td>${data.wind_speed} km/h</td>
+                                <td>${data.wind_speed} kt</td>
                             </tr>
                             <tr>
                                 <th>Intensity</th>
