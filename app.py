@@ -111,24 +111,19 @@ def typhoons():
 
     elif request.method == 'PUT':
         typhoon_data = request.get_json()
-        typhoon = Typhoon.query.get(typhoon_data['id'])
-
+        typhoon = Typhoon.query.get(typhoon_data['id'],typhoon_data['time'])
         typhoon.name = typhoon_data['name']
-        typhoon.time = typhoon_data['time']
+        # typhoon.time = typhoon_data['time']
         typhoon.wind_speed = typhoon_data['wind_speed']
         typhoon.intensity = typhoon_data['intensity']
-
         db.session.commit()
-
         return jsonify({"message": "Typhoon updated"}), 200
 
     elif request.method == 'DELETE':
         typhoon_id = request.args.get('id')
         typhoon = Typhoon.query.get(typhoon_id)
-
         db.session.delete(typhoon)
         db.session.commit()
-
         return jsonify({"message": "Typhoon deleted"}), 200
 
 

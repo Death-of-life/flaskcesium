@@ -5,8 +5,9 @@ document.addEventListener("DOMContentLoaded", function () {
             url: "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer",
         }),
         baseLayerPicker: false,
-    });
 
+    });
+    viewer.cesiumWidget.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK);
     // 获取 HTML 元素
     const historyBtn = document.getElementById("historyBtn");
     const typhoonList = document.getElementById("typhoonList");
@@ -55,6 +56,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 // 添加台风实体
                 viewer.entities.add({
+                    id: data.id, // 添加此行以将数据 ID 设置为实体 ID
                     position: Cesium.Cartesian3.fromDegrees(data.longitude, data.latitude),
                     point: {
                         pixelSize: 10,
@@ -70,8 +72,48 @@ document.addEventListener("DOMContentLoaded", function () {
                         verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
                         pixelOffset: new Cesium.Cartesian2(0, -9),
                     },
+                    description: `
+                        <table>
+                            <tr>
+                                <th>Name</th>
+                                <td>${data.name}</td>
+                            </tr>
+                            <tr>
+                                <th>Time</th>
+                                <td>${data.time}</td>
+                            </tr>
+                            <tr>
+                                <th>Upload Time</th>
+                                <td>${data.upload_time}</td>
+                            </tr>
+                            <tr>
+                                <th>Wind Speed</th>
+                                <td>${data.wind_speed} km/h</td>
+                            </tr>
+                            <tr>
+                                <th>Intensity</th>
+                                <td>${data.intensity}</td>
+                            </tr>
+                            <tr>
+                                <th>Latitude</th>
+                                <td>${data.latitude}</td>
+                            </tr>
+                            <tr>
+                                <th>Longitude</th>
+                                <td>${data.longitude}</td>
+                            </tr>
+                        </table>
+                    `,
                 });
-
+                const handler = new Cesium.ScreenSpaceEventHandler(viewer.canvas);
+                handler.setInputAction((event) => {
+                    const pickedObject = viewer.scene.pick(event.position);
+                    if (Cesium.defined(pickedObject) && Cesium.defined(pickedObject.id)) {
+                        viewer.selectedEntity = pickedObject.id;
+                    } else {
+                        viewer.selectedEntity = undefined;
+                    }
+                }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
                 // 将视图定位到台风位置
                 viewer.camera.flyTo({
                     destination: Cesium.Cartesian3.fromDegrees(data.longitude, data.latitude, 1000000)
