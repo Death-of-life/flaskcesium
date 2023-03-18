@@ -5,7 +5,7 @@ import uuid
 import datetime
 
 # 数据库名称
-db_name = "typhoons.db"
+db_name = "instance/typhoons.db"
 
 # 连接到数据库
 conn = sqlite3.connect(db_name)

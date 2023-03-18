@@ -15,7 +15,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // 获取历史台风数据并更新下拉列表
     function fetchTyphoons() {
-        fetch("/get_typhoons")
+        fetch("/typhoons", {
+            method: "GET"
+        })
             .then((response) => response.json())
             .then((data) => {
                 // 清空现有选项
@@ -24,7 +26,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 // 添加新的台风选项
                 data.forEach((typhoon) => {
                     const option = document.createElement("option");
-                    option.value = typhoon.id;
+                    option.value = JSON.stringify({id: typhoon.id, time: typhoon.time});
                     option.text = `${typhoon.name} (${typhoon.time})`;
                     typhoonList.add(option);
                 });
@@ -32,13 +34,20 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // 点击查看历史台风按钮时，获取台风数据
-    historyBtn.addEventListener("click", fetchTyphoons);
+    historyBtn.addEventListener("click", () => {
+        fetchTyphoons();
+        $("#historyModal").modal("show");
+    });
 
     // 选择历史台风后，在 Cesium Viewer 中显示台风
     typhoonList.addEventListener("change", (event) => {
-        const typhoonId = event.target.value;
+        const typhoonData = JSON.parse(event.target.value);
+        const typhoonId = typhoonData.id;
+        const typhoonTime = typhoonData.time;
 
-        fetch(`/get_typhoon/${typhoonId}`)
+        fetch(`/typhoons?id=${typhoonId}&time=${typhoonTime}`, {
+            method: "GET"
+        })
             .then((response) => response.json())
             .then((data) => {
                 // 清除现有实体
@@ -70,42 +79,40 @@ document.addEventListener("DOMContentLoaded", function () {
             });
     });
 
-// 打开上传台风模态框
+
+    // 打开上传台风模态框
     uploadBtn.addEventListener("click", () => {
         $("#uploadModal").modal("show");
     });
 
-// 处理表单提交
+    // 处理表单提交
     uploadForm.addEventListener("submit", (event) => {
         event.preventDefault();
 
         const typhoonData = {
+            id: Date.now().toString(),
             name: document.getElementById("typhoonName").value,
             time: document.getElementById("typhoonTime").value,
             wind_speed: document.getElementById("windSpeed").value,
-            latitude: document.getElementById("latitude").value,
-            longitude: document.getElementById("longitude").value,
-        };
-
-        fetch("/add_typhoon", {
+            intensity: "未知",
+            latitude: parseFloat(document.getElementById("latitude").value),
+            longitude: parseFloat(document.getElementById("longitude").value),
+        };    // 提交台风数据
+        fetch("/typhoons", {
             method: "POST",
             headers: {
-                "Content-Type": "application/json",
+                "Content-Type": "application/json"
             },
-            body: JSON.stringify(typhoonData),
+            body: JSON.stringify(typhoonData)
         })
             .then((response) => response.json())
             .then((data) => {
                 if (data.status === "success") {
-                    // 隐藏模态框
+                    alert("台风数据上传成功！");
                     $("#uploadModal").modal("hide");
-                    // 清空表单
                     uploadForm.reset();
-                    // 提示成功信息
-                    alert("台风数据已成功上传！");
                 } else {
-                    // 提示错误信息
-                    alert("上传失败，请稍后重试。");
+                    alert("上传失败，请重试。");
                 }
             });
     });

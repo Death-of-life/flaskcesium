@@ -13,12 +13,15 @@ db = SQLAlchemy(app)
 
 
 class Typhoon(db.Model):
+    __tablename__ = 'typhoons'  # 添加这一行
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    time = db.Column(db.String(100), nullable=False)
-    upload_time = db.Column(db.String(100), nullable=False)
+    time = db.Column(db.String(20), primary_key=True)
+    name = db.Column(db.String(50), nullable=False)
     wind_speed = db.Column(db.Float, nullable=False)
-    intensity = db.Column(db.Float, nullable=False)
+    intensity = db.Column(db.String(10), nullable=False)
+    latitude = db.Column(db.Float, nullable=False)
+    longitude = db.Column(db.Float, nullable=False)
+    upload_time = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     def __repr__(self):
         return f"<Typhoon {self.id} - {self.name}>"
@@ -36,6 +39,8 @@ def upload():
     file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
     # 在这里添加您的预测代码
+    # ToDo
+
     # 预测结果示例:
     predicted_intensity = random.uniform(1, 5)
 
@@ -53,7 +58,9 @@ def typhoons():
             time=typhoon_data['time'],
             upload_time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             wind_speed=typhoon_data['wind_speed'],
-            intensity=typhoon_data['intensity']
+            intensity=typhoon_data['intensity'],
+            longitude=typhoon_data['longitude'],
+            latitude=typhoon_data['latitude']
         )
 
         db.session.add(new_typhoon)
@@ -62,21 +69,45 @@ def typhoons():
         return jsonify({"message": "New typhoon added"}), 201
 
     elif request.method == 'GET':
-        typhoons = Typhoon.query.all()
-        all_typhoons = []
+        typhoon_id = request.args.get('id')
+        typhoon_time = request.args.get('time')
 
-        for typhoon in typhoons:
-            typhoon_data = {
-                'id': typhoon.id,
-                'name': typhoon.name,
-                'time': typhoon.time,
-                'upload_time': typhoon.upload_time,
-                'wind_speed': typhoon.wind_speed,
-                'intensity': typhoon.intensity
-            }
-            all_typhoons.append(typhoon_data)
+        if typhoon_id and typhoon_time:
+            # 如果传入了 id 和 time 参数
+            typhoon = Typhoon.query.filter_by(id=typhoon_id, time=typhoon_time).first()
 
-        return jsonify(all_typhoons)
+            if typhoon:
+                typhoon_data = {
+                    'id': typhoon.id,
+                    'name': typhoon.name,
+                    'time': typhoon.time,
+                    'upload_time': typhoon.upload_time,
+                    'wind_speed': typhoon.wind_speed,
+                    'intensity': typhoon.intensity,
+                    'longitude': typhoon.longitude,
+                    'latitude': typhoon.latitude
+                }
+
+                return jsonify(typhoon_data)
+            else:
+                return jsonify({"message": "Typhoon not found"}), 404
+        else:
+            # 如果没有传入 id 和 time 参数，返回所有台风
+            typhoons = Typhoon.query.all()
+            all_typhoons = []
+
+            for typhoon in typhoons:
+                typhoon_data = {
+                    'id': typhoon.id,
+                    'name': typhoon.name,
+                    'time': typhoon.time,
+                    'upload_time': typhoon.upload_time,
+                    'wind_speed': typhoon.wind_speed,
+                    'intensity': typhoon.intensity
+                }
+                all_typhoons.append(typhoon_data)
+
+            return jsonify(all_typhoons)
 
     elif request.method == 'PUT':
         typhoon_data = request.get_json()
