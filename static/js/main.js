@@ -55,56 +55,64 @@ document.addEventListener("DOMContentLoaded", function () {
                 viewer.entities.removeAll();
 
                 // 添加台风实体
-                viewer.entities.add({
-                    id: data.id, // 添加此行以将数据 ID 设置为实体 ID
+                const hurricaneBillboard = viewer.entities.add({
+                    id: `hurricane-${data.id}`,
                     position: Cesium.Cartesian3.fromDegrees(data.longitude, data.latitude),
-                    point: {
-                        pixelSize: 10,
-                        color: Cesium.Color.RED,
-                    },
-                    label: {
-                        text: data.name,
-                        font: "14px sans-serif",
-                        fillColor: Cesium.Color.BLACK,
-                        outlineColor: Cesium.Color.WHITE,
-                        outlineWidth: 2,
-                        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-                        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-                        pixelOffset: new Cesium.Cartesian2(0, -9),
+                    billboard: {
+                        image:  "static/img/hurricane.png",
+                        width: 64,
+                        height: 64,
+                        color: Cesium.Color.WHITE,
+                        scale: 1.5,
+                        // verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+                        verticalOrigin: Cesium.VerticalOrigin.CENTER, // 将纵向原点设置为中心
+                        horizontalOrigin: Cesium.HorizontalOrigin.CENTER, // 将横向原点设置为中心
+                        pixelOffset: new Cesium.Cartesian2(0, 0), // 调整图标的位置，如果需要的话
                     },
                     description: `
-                        <table>
-                            <tr>
-                                <th>Name</th>
-                                <td>${data.name}</td>
-                            </tr>
-                            <tr>
-                                <th>Time</th>
-                                <td>${data.time}</td>
-                            </tr>
-                            <tr>
-                                <th>Upload Time</th>
-                                <td>${data.upload_time}</td>
-                            </tr>
-                            <tr>
-                                <th>Wind Speed</th>
-                                <td>${data.wind_speed} kt</td>
-                            </tr>
-                            <tr>
-                                <th>Intensity</th>
-                                <td>${data.intensity}</td>
-                            </tr>
-                            <tr>
-                                <th>Latitude</th>
-                                <td>${data.latitude}</td>
-                            </tr>
-                            <tr>
-                                <th>Longitude</th>
-                                <td>${data.longitude}</td>
-                            </tr>
-                        </table>
-                    `,
+                    <table>
+                        <tr>
+                            <th>Name</th>
+                            <td>${data.name}</td>
+                        </tr>
+                        <tr>
+                            <th>Time</th>
+                            <td>${data.time}</td>
+                        </tr>
+                        <tr>
+                            <th>Upload Time</th>
+                            <td>${data.upload_time}</td>
+                        </tr>
+                        <tr>
+                            <th>Wind Speed</th>
+                            <td>${data.wind_speed} kt</td>
+                        </tr>
+                        <tr>
+                            <th>Intensity</th>
+                            <td>${data.intensity}</td>
+                        </tr>
+                        <tr>
+                            <th>Latitude</th>
+                            <td>${data.latitude}</td>
+                        </tr>
+                        <tr>
+                            <th>Longitude</th>
+                            <td>${data.longitude}</td>
+                        </tr>
+                    </table>
+                `,
                 });
+
+                // 旋转飓风图标
+                let rotation = 0;
+                viewer.scene.postRender.addEventListener(() => {
+                    rotation += 0.01;
+                    if (rotation > Cesium.Math.TWO_PI) {
+                        rotation -= Cesium.Math.TWO_PI;
+                    }
+                    hurricaneBillboard.billboard.rotation = rotation;
+                });
+
                 const handler = new Cesium.ScreenSpaceEventHandler(viewer.canvas);
                 handler.setInputAction((event) => {
                     const pickedObject = viewer.scene.pick(event.position);
@@ -114,6 +122,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         viewer.selectedEntity = undefined;
                     }
                 }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
                 // 将视图定位到台风位置
                 viewer.camera.flyTo({
                     destination: Cesium.Cartesian3.fromDegrees(data.longitude, data.latitude, 1000000)
