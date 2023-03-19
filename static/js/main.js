@@ -5,14 +5,15 @@ document.addEventListener("DOMContentLoaded", function () {
             url: "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer",
         }),
         baseLayerPicker: false,
-
     });
     viewer.cesiumWidget.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
     // 获取 HTML 元素
     const historyBtn = document.getElementById("historyBtn");
     const typhoonList = document.getElementById("typhoonList");
     const uploadBtn = document.getElementById("uploadBtn");
     const uploadForm = document.getElementById("uploadForm");
+    const fileInput = document.getElementById("fileInput");
 
     // 获取历史台风数据并更新下拉列表
     function fetchTyphoons() {
@@ -59,7 +60,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     id: `hurricane-${data.id}`,
                     position: Cesium.Cartesian3.fromDegrees(data.longitude, data.latitude),
                     billboard: {
-                        image:  "static/img/hurricane.png",
+                        image: "static/img/hurricane.png",
                         width: 64,
                         height: 64,
                         color: Cesium.Color.WHITE,
@@ -99,72 +100,90 @@ document.addEventListener("DOMContentLoaded", function () {
                             <th>Longitude</th>
                             <td>${data.longitude}</td>
                         </tr>
-                    </table>
-                `,
+                        </table>
+                        `,
                 });
-
-                // 旋转飓风图标
-                let rotation = 0;
-                viewer.scene.postRender.addEventListener(() => {
-                    rotation += 0.01;
-                    if (rotation > Cesium.Math.TWO_PI) {
-                        rotation -= Cesium.Math.TWO_PI;
-                    }
-                    hurricaneBillboard.billboard.rotation = rotation;
-                });
-
-                const handler = new Cesium.ScreenSpaceEventHandler(viewer.canvas);
-                handler.setInputAction((event) => {
-                    const pickedObject = viewer.scene.pick(event.position);
-                    if (Cesium.defined(pickedObject) && Cesium.defined(pickedObject.id)) {
-                        viewer.selectedEntity = pickedObject.id;
-                    } else {
-                        viewer.selectedEntity = undefined;
-                    }
-                }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
-
-                // 将视图定位到台风位置
-                viewer.camera.flyTo({
-                    destination: Cesium.Cartesian3.fromDegrees(data.longitude, data.latitude, 1000000)
-                });
-            });
-    });
-
-
-    // 打开上传台风模态框
-    uploadBtn.addEventListener("click", () => {
-        $("#uploadModal").modal("show");
-    });
-
-    // 处理表单提交
-    uploadForm.addEventListener("submit", (event) => {
-        event.preventDefault();
-
-        const typhoonData = {
-            id: Date.now().toString(),
-            name: document.getElementById("typhoonName").value,
-            time: document.getElementById("typhoonTime").value,
-            wind_speed: document.getElementById("windSpeed").value,
-            intensity: "未知",
-            latitude: parseFloat(document.getElementById("latitude").value),
-            longitude: parseFloat(document.getElementById("longitude").value),
-        };    // 提交台风数据
-        fetch("/typhoons", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(typhoonData)
-        })
-            .then((response) => response.json())
-            .then((data) => {
-                if (data.status === "success") {
-                    alert("台风数据上传成功！");
-                    $("#uploadModal").modal("hide");
-                    uploadForm.reset();
-                } else {
-                    alert("上传失败，请重试。");
+                            // 旋转飓风图标
+            let rotation = 0;
+            viewer.scene.postRender.addEventListener(() => {
+                rotation += 0.01;
+                if (rotation > Cesium.Math.TWO_PI) {
+                    rotation -= Cesium.Math.TWO_PI;
                 }
+                hurricaneBillboard.billboard.rotation = rotation;
             });
-    });
+
+            const handler = new Cesium.ScreenSpaceEventHandler(viewer.canvas);
+            handler.setInputAction((event) => {
+                const pickedObject = viewer.scene.pick(event.position);
+                if (Cesium.defined(pickedObject) && Cesium.defined(pickedObject.id)) {
+                    viewer.selectedEntity = pickedObject.id;
+                } else {
+                    viewer.selectedEntity = undefined;
+                }
+            }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+            // 将视图定位到台风位置
+            viewer.camera.flyTo({
+                destination: Cesium.Cartesian3.fromDegrees(data.longitude, data.latitude, 1000000)
+            });
+        });
+});
+
+// 打开上传台风模态框
+uploadBtn.addEventListener("click", () => {
+    $("#uploadModal").modal("show");
+});
+
+// 处理表单提交
+uploadForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+
+    const formData = new FormData(uploadForm);
+    const file = fileInput.files[0];
+    formData.append("file", file);
+
+    fetch("/upload_file", {
+        method: "POST",
+        body: formData
+    })
+        .then((response) => response.json())
+        .then((data) => {
+            if (data.status === "success") {
+                alert("台风数据上传成功！");
+                $("#uploadModal").modal("hide");
+                uploadForm.reset();
+            } else {
+                alert("上传失败，请重试。");
+            }
+        });
+});
+// 打开上传台风模态框
+uploadBtn.addEventListener("click", () => {
+    $("#uploadModal").modal("show");
+});
+
+// 处理表单提交
+uploadForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+
+    const formData = new FormData(uploadForm);
+    const file = fileInput.files[0];
+    formData.append("file", file);
+
+    fetch("/upload_file", {
+        method: "POST",
+        body: formData
+    })
+        .then((response) => response.json())
+        .then((data) => {
+            if (data.status === "success") {
+                alert("台风数据上传成功！");
+                $("#uploadModal").modal("hide");
+                uploadForm.reset();
+            } else {
+                alert("上传失败，请重试。");
+            }
+        });
+});
 });

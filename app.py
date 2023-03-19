@@ -38,19 +38,33 @@ def admin():
     return render_template("admin.html")
 
 
-@app.route('/upload', methods=['POST'])
-def upload():
-    file = request.files['file']
-    filename = secure_filename(file.filename)
-    file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+@app.route('/upload_file', methods=['POST'])
+def upload_file():
+    file1 = request.files['file1']
+    file2 = request.files['file2']
+    prediction_method = request.form.get('prediction_method')
+
+    # 保存图片
+    filename1 = secure_filename(file1.filename)
+    file1.save(os.path.join(app.config['UPLOAD_FOLDER'], filename1))
+
+    if prediction_method == 'double':
+        filename2 = secure_filename(file2.filename)
+        file2.save(os.path.join(app.config['UPLOAD_FOLDER'], filename2))
 
     # 在这里添加您的预测代码
     # ToDo
 
     # 预测结果示例:
     predicted_intensity = random.uniform(1, 5)
+    predicted_wind_speed = random.uniform(30, 60)
 
-    return jsonify({"intensity": predicted_intensity})
+    if prediction_method == 'single':
+        prediction = {"intensity": predicted_intensity}
+    else:
+        prediction = {"wind_speed": predicted_wind_speed, "intensity": predicted_intensity}
+
+    return jsonify({"status": "success", "prediction": prediction})
 
 
 @app.route('/typhoons', methods=['POST', 'GET', 'PUT', 'DELETE'])
