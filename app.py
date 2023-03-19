@@ -4,6 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import random
 from werkzeug.utils import secure_filename
+from typhoon_cnn import detect_image
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///typhoons.db'
@@ -13,7 +14,7 @@ db = SQLAlchemy(app)
 
 
 class Typhoon(db.Model):
-    __tablename__ = 'typhoons'  # 添加这一行
+    __tablename__ = 'typhoons'
     id = db.Column(db.Integer, primary_key=True)
     time = db.Column(db.String(20), primary_key=True)
     name = db.Column(db.String(50), nullable=False)
@@ -30,6 +31,11 @@ class Typhoon(db.Model):
 @app.route('/')
 def index():
     return render_template("index.html")
+
+
+@app.route('/admin')
+def admin():
+    return render_template("admin.html")
 
 
 @app.route('/upload', methods=['POST'])
@@ -103,7 +109,9 @@ def typhoons():
                     'time': typhoon.time,
                     'upload_time': typhoon.upload_time,
                     'wind_speed': typhoon.wind_speed,
-                    'intensity': typhoon.intensity
+                    'intensity': typhoon.intensity,
+                    'longitude': typhoon.longitude,
+                    'latitude': typhoon.latitude
                 }
                 all_typhoons.append(typhoon_data)
 
@@ -111,21 +119,40 @@ def typhoons():
 
     elif request.method == 'PUT':
         typhoon_data = request.get_json()
-        typhoon = Typhoon.query.get(typhoon_data['id'],typhoon_data['time'])
-        typhoon.name = typhoon_data['name']
-        # typhoon.time = typhoon_data['time']
-        typhoon.wind_speed = typhoon_data['wind_speed']
-        typhoon.intensity = typhoon_data['intensity']
-        db.session.commit()
-        return jsonify({"message": "Typhoon updated"}), 200
+        typhoon_id = request.args.get('id')
+        typhoon_time = request.args.get('time')
+        typhoon = Typhoon.query.filter_by(id=typhoon_id, time=typhoon_time).first()
+
+        if typhoon:
+            typhoon.name = typhoon_data['name']
+            typhoon.wind_speed = typhoon_data['wind_speed']
+            typhoon.intensity = typhoon_data['intensity']
+            typhoon.longitude = typhoon_data['longitude']
+            typhoon.latitude = typhoon_data['latitude']
+            db.session.commit()
+
+            return jsonify({"message": "台风数据已修改", "status": "success"}), 200
+        else:
+            return jsonify({"message": "未找到台风"}), 404
 
     elif request.method == 'DELETE':
         typhoon_id = request.args.get('id')
-        typhoon = Typhoon.query.get(typhoon_id)
-        db.session.delete(typhoon)
-        db.session.commit()
-        return jsonify({"message": "Typhoon deleted"}), 200
+        typhoon_time = request.args.get('time')
+
+        if typhoon_id and typhoon_time:
+            typhoon = Typhoon.query.filter_by(id=typhoon_id, time=typhoon_time).first()
+
+            if typhoon:
+                db.session.delete(typhoon)
+                db.session.commit()
+
+                return jsonify({"message": "台风删除成功", "status": "success"}), 200
+            else:
+                return jsonify({"message": "未找到台风"}), 404
+        else:
+            return jsonify({"message": "缺少必须参数"}), 400
 
 
-if __name__ == '__main__':
+if __name__ == 'main':
+    db.create_all()
     app.run(debug=True)
