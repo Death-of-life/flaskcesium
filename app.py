@@ -5,7 +5,7 @@ from datetime import datetime
 import random
 from werkzeug.utils import secure_filename
 from typhoon_cnn import detect_image
-
+from PIL import Image
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///typhoons.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -40,23 +40,34 @@ def admin():
 
 @app.route('/upload_file', methods=['POST'])
 def upload_file():
-    file1 = request.files['file1']
-    file2 = request.files['file2']
+    file1 = request.files.get('file1')
+    file2 = request.files.get('file2')
     prediction_method = request.form.get('prediction_method')
-
+    intensity = -1
+    wind_speed = -1
     # 保存图片
-    filename1 = secure_filename(file1.filename)
-    file1.save(os.path.join(app.config['UPLOAD_FOLDER'], filename1))
+    if file1:
+        filename1 = secure_filename(file1.filename)
+        file1_path = os.path.join(app.config['UPLOAD_FOLDER'], filename1)
+        file1.save(file1_path)
 
-    if prediction_method == 'double':
+    if prediction_method == 'double' and file2:
         filename2 = secure_filename(file2.filename)
-        file2.save(os.path.join(app.config['UPLOAD_FOLDER'], filename2))
+        file2_path = os.path.join(app.config['UPLOAD_FOLDER'], filename2)
+        file2.save(file2_path)
 
     # 在这里添加您的预测代码
-    # ToDo
+    if file1:
+        img1 = Image.open(file1_path)
+        intensity = detect_image(img1)
+
+    if prediction_method == 'double' and file2:
+        img2 = Image.open(file2_path)
+        # 在这里调用处理第二个图片的预测函数
+        # intensity2 = detect_image(img2)
 
     # 预测结果示例:
-    predicted_intensity = random.uniform(1, 5)
+    predicted_intensity = intensity
     predicted_wind_speed = random.uniform(30, 60)
 
     if prediction_method == 'single':
@@ -76,7 +87,7 @@ def typhoons():
             id=typhoon_data['id'],
             name=typhoon_data['name'],
             time=typhoon_data['time'],
-            upload_time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            upload_time=datetime.now(),
             wind_speed=typhoon_data['wind_speed'],
             intensity=typhoon_data['intensity'],
             longitude=typhoon_data['longitude'],
@@ -144,7 +155,6 @@ def typhoons():
             typhoon.longitude = typhoon_data['longitude']
             typhoon.latitude = typhoon_data['latitude']
             db.session.commit()
-
             return jsonify({"message": "台风数据已修改", "status": "success"}), 200
         else:
             return jsonify({"message": "未找到台风"}), 404

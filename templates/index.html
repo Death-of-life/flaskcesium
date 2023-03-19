@@ -75,6 +75,10 @@
             </div>
             <div class="modal-body">
                 <form id="uploadForm">
+                    <div class="mb-3">
+                        <label for="typhoonID" class="form-label">台风ID</label>
+                        <input type="text" class="form-control" id="typhoonID" required>
+                    </div>
 
                     <div class="mb-3">
                         <label for="typhoonName" class="form-label">台风名称</label>
@@ -87,6 +91,10 @@
                     <div class="mb-3">
                         <label for="windSpeed" class="form-label">风速（kt）</label>
                         <input type="number" class="form-control" id="windSpeed" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="pressure" class="form-label">等级</label>
+                        <input type="text" class="form-control" id="intensity" required>
                     </div>
                     <div class="mb-3">
                         <label for="latitude" class="form-label">纬度</label>
@@ -116,11 +124,13 @@
                             </div>
                         </div>
                     </div>
+                    <button type="submit" class="btn btn-primary">提交上传</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
                     </form>
             </div>
             <div class="modal-footer">
-                <button type="submit" class="btn btn-primary">上传</button>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+
+
             </div>
 
         </div>
