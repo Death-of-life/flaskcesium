@@ -6,11 +6,20 @@ import random
 from werkzeug.utils import secure_filename
 from typhoon_cnn import detect_image
 from PIL import Image
+from sqlalchemy import and_, or_
+from predict_double import predict_double
+
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///typhoons.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = './uploads'
 db = SQLAlchemy(app)
+
+
+
+
+
+
 
 
 class Typhoon(db.Model):
@@ -27,6 +36,27 @@ class Typhoon(db.Model):
     def __repr__(self):
         return f"<Typhoon {self.id} - {self.name}>"
 
+
+class TyphoonHistory(db.Model):
+    __tablename__ = 'typhoon_history'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False)
+    times = db.Column(db.String, nullable=False)
+
+    def __repr__(self):
+        return f"<TyphoonHistory {self.id} - {self.name}>"
+
+def update_history():
+    # 删除 typhoon_history 表中的所有记录
+    db.engine.execute("DELETE FROM typhoon_history")
+
+    # 使用新数据重新插入到 typhoon_history 表
+    db.engine.execute("""
+    INSERT INTO typhoon_history (id, name, times)
+    SELECT typhoons.id, typhoons.name, GROUP_CONCAT(typhoons.time, ',')
+    FROM typhoons
+    GROUP BY typhoons.id, typhoons.name;
+    """)
 
 @app.route('/')
 def index():
@@ -51,29 +81,29 @@ def upload_file():
         file1_path = os.path.join(app.config['UPLOAD_FOLDER'], filename1)
         file1.save(file1_path)
 
-    if prediction_method == 'double' and file2:
+    # if prediction_method == 'double' and file2:
+    if file2:
         filename2 = secure_filename(file2.filename)
         file2_path = os.path.join(app.config['UPLOAD_FOLDER'], filename2)
         file2.save(file2_path)
 
-    # 在这里添加您的预测代码
-    if file1:
-        img1 = Image.open(file1_path)
-        intensity = detect_image(img1)
-
-    if prediction_method == 'double' and file2:
-        img2 = Image.open(file2_path)
+    if file1 and file2:
+        img1 = Image.open(file1_path).convert('L')
+        img2 = Image.open(file2_path).convert('L')
         # 在这里调用处理第二个图片的预测函数
-        # intensity2 = detect_image(img2)
+        wind_speed, intensity = predict_double(img1, img2)
 
+    elif file1:
+        img1 = Image.open(file1_path).convert('L')
+        intensity = detect_image(img1)
     # 预测结果示例:
+    predict_wind_speed = wind_speed
     predicted_intensity = intensity
-    predicted_wind_speed = random.uniform(30, 60)
 
     if prediction_method == 'single':
         prediction = {"intensity": predicted_intensity}
     else:
-        prediction = {"wind_speed": predicted_wind_speed, "intensity": predicted_intensity}
+        prediction = {"wind_speed": predict_wind_speed, "intensity": predicted_intensity}
 
     return jsonify({"status": "success", "prediction": prediction})
 
@@ -96,51 +126,80 @@ def typhoons():
 
         db.session.add(new_typhoon)
         db.session.commit()
+        update_history()
+        return jsonify({"message": "台风添加成功"}), 201
 
-        return jsonify({"message": "New typhoon added"}), 201
 
     elif request.method == 'GET':
+
         typhoon_id = request.args.get('id')
-        typhoon_time = request.args.get('time')
 
-        if typhoon_id and typhoon_time:
-            # 如果传入了 id 和 time 参数
-            typhoon = Typhoon.query.filter_by(id=typhoon_id, time=typhoon_time).first()
+        if typhoon_id:
 
-            if typhoon:
-                typhoon_data = {
-                    'id': typhoon.id,
-                    'name': typhoon.name,
-                    'time': typhoon.time,
-                    'upload_time': typhoon.upload_time,
-                    'wind_speed': typhoon.wind_speed,
-                    'intensity': typhoon.intensity,
-                    'longitude': typhoon.longitude,
-                    'latitude': typhoon.latitude
-                }
+            # 如果传入了 id 参数
 
-                return jsonify(typhoon_data)
+            typhoon_history = TyphoonHistory.query.filter_by(id=typhoon_id).first()
+
+            if typhoon_history:
+
+                typhoon_times = typhoon_history.times.split(',')
+
+                typhoon_data_list = []
+
+                for time in typhoon_times:
+
+                    typhoon = Typhoon.query.filter_by(id=typhoon_id, time=time).first()
+
+                    if typhoon:
+                        typhoon_data = {
+
+                            'id': typhoon.id,
+
+                            'name': typhoon.name,
+
+                            'time': typhoon.time,
+
+                            'upload_time': typhoon.upload_time,
+
+                            'wind_speed': typhoon.wind_speed,
+
+                            'intensity': typhoon.intensity,
+
+                            'longitude': typhoon.longitude,
+
+                            'latitude': typhoon.latitude
+
+                        }
+
+                        typhoon_data_list.append(typhoon_data)
+                print(typhoon_data_list)
+                return jsonify(typhoon_data_list)
+
             else:
-                return jsonify({"message": "Typhoon not found"}), 404
+
+                return jsonify({"message": "未找到台风"}), 404
+
+
         else:
-            # 如果没有传入 id 和 time 参数，返回所有台风
-            typhoons = Typhoon.query.all()
-            all_typhoons = []
 
-            for typhoon in typhoons:
+            # 如果没有传入 id 参数，返回最新的 10 个台风
+
+            typhoon_history = TyphoonHistory.query.order_by(TyphoonHistory.id.desc()).limit(10).all()
+
+            latest_typhoons = []
+
+            for typhoon in typhoon_history:
                 typhoon_data = {
-                    'id': typhoon.id,
-                    'name': typhoon.name,
-                    'time': typhoon.time,
-                    'upload_time': typhoon.upload_time,
-                    'wind_speed': typhoon.wind_speed,
-                    'intensity': typhoon.intensity,
-                    'longitude': typhoon.longitude,
-                    'latitude': typhoon.latitude
-                }
-                all_typhoons.append(typhoon_data)
 
-            return jsonify(all_typhoons)
+                    'id': typhoon.id,
+
+                    'name': typhoon.name
+
+                }
+
+                latest_typhoons.append(typhoon_data)
+
+            return jsonify(latest_typhoons)
 
     elif request.method == 'PUT':
         typhoon_data = request.get_json()
@@ -155,6 +214,7 @@ def typhoons():
             typhoon.longitude = typhoon_data['longitude']
             typhoon.latitude = typhoon_data['latitude']
             db.session.commit()
+            update_history()
             return jsonify({"message": "台风数据已修改", "status": "success"}), 200
         else:
             return jsonify({"message": "未找到台风"}), 404
@@ -169,12 +229,39 @@ def typhoons():
             if typhoon:
                 db.session.delete(typhoon)
                 db.session.commit()
-
+                update_history()
                 return jsonify({"message": "台风删除成功", "status": "success"}), 200
             else:
                 return jsonify({"message": "未找到台风"}), 404
         else:
             return jsonify({"message": "缺少必须参数"}), 400
+
+
+@app.route('/search_typhoons', methods=['GET'])
+def search_typhoons():
+    query = request.args.get('query')
+    if query:
+        # 使用模糊查询匹配部分ID
+        typhoon_history = TyphoonHistory.query.filter(
+            or_(
+                TyphoonHistory.id.like(f"%{query}%"),
+                TyphoonHistory.name.like(f"%{query}%")
+            )
+        ).all()
+
+        if typhoon_history:
+            search_results = []
+            for typhoon in typhoon_history:
+                typhoon_data = {
+                    'id': typhoon.id,
+                    'name': typhoon.name
+                }
+                search_results.append(typhoon_data)
+            return jsonify(search_results)
+        else:
+            return jsonify({"message": "未找到台风"}), 404
+    else:
+        return jsonify({"message": "缺少必须参数"}), 400
 
 
 if __name__ == 'main':

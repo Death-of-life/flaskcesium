@@ -17,8 +17,10 @@ document.addEventListener("DOMContentLoaded", function () {
     const typhoonList = document.getElementById("typhoonList");
     const uploadBtn = document.getElementById("uploadBtn");
     const uploadForm = document.getElementById("uploadForm");
-    const fileInput = document.getElementById("fileInput");
-
+    // const fileInput = document.getElementById("fileInput");
+    const searchBtn = document.getElementById("searchBtn");
+    const searchInput = document.getElementById("searchInput");
+    // 获取历史台风数据并更新下拉列表
     // 获取历史台风数据并更新下拉列表
     function fetchTyphoons() {
         fetch("/typhoons", {
@@ -26,18 +28,44 @@ document.addEventListener("DOMContentLoaded", function () {
         })
             .then((response) => response.json())
             .then((data) => {
-                // 清空现有选项
-                typhoonList.innerHTML = "";
-
-                // 添加新的台风选项
-                data.forEach((typhoon) => {
-                    const option = document.createElement("option");
-                    option.value = JSON.stringify({id: typhoon.id, time: typhoon.time});
-                    option.text = `${typhoon.name} (${typhoon.time})`;
-                    typhoonList.add(option);
-                });
+                updateTyphoonList(data);
             });
     }
+
+    // 更新台风下拉列表
+    function updateTyphoonList(data) {
+        // 清空现有选项
+        typhoonList.innerHTML = "";
+
+        // 添加新的台风选项
+        data.forEach((typhoon) => {
+            const option = document.createElement("option");
+            option.value = typhoon.id;
+            option.text = `${typhoon.name} (${typhoon.id})`;
+            typhoonList.add(option);
+
+        });
+    }
+
+
+    // 搜索台风
+    function searchTyphoon(query) {
+        // 在这里实现搜索台风的逻辑，根据您的后端实现
+        // 假设您已经实现了一个用于搜索台风的API端点，我们可以向该端点发送GET请求
+        fetch(`/search_typhoons?query=${query}`, {
+            method: "GET"
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                updateTyphoonList(data);
+            });
+    }
+
+    // 点击搜索按钮时，搜索台风
+    searchBtn.addEventListener("click", () => {
+        const query = searchInput.value;
+        searchTyphoon(query);
+    });
 
     // 点击查看历史台风按钮时，获取台风数据
     historyBtn.addEventListener("click", () => {
@@ -47,66 +75,76 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // 选择历史台风后，在 Cesium Viewer 中显示台风
     typhoonList.addEventListener("change", (event) => {
-        const typhoonData = JSON.parse(event.target.value);
-        const typhoonId = typhoonData.id;
-        const typhoonTime = typhoonData.time;
+        const typhoonId = event.target.value;
 
-        fetch(`/typhoons?id=${typhoonId}&time=${typhoonTime}`, {
+        fetch(`/typhoons?id=${typhoonId}`, {
             method: "GET"
         })
             .then((response) => response.json())
             .then((data) => {
-                // 清除现有实体
-                viewer.entities.removeAll();
+                drawTyphoonPath(data);
+            });
+    });
 
-                // 添加台风实体
-                const hurricaneBillboard = viewer.entities.add({
-                    id: `hurricane-${data.id}`,
-                    position: Cesium.Cartesian3.fromDegrees(data.longitude, data.latitude),
-                    billboard: {
-                        image: "static/img/hurricane.png",
-                        width: 64,
-                        height: 64,
-                        color: Cesium.Color.WHITE,
-                        scale: 1.5,
-                        // verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-                        verticalOrigin: Cesium.VerticalOrigin.CENTER, // 将纵向原点设置为中心
-                        horizontalOrigin: Cesium.HorizontalOrigin.CENTER, // 将横向原点设置为中心
-                        pixelOffset: new Cesium.Cartesian2(0, 0), // 调整图标的位置，如果需要的话
-                    },
-                    description: `
-                    <table>
-                        <tr>
-                            <th>Name</th>
-                            <td>${data.name}</td>
-                        </tr>
-                        <tr>
-                            <th>Time</th>
-                            <td>${data.time}</td>
-                        </tr>
-                        <tr>
-                            <th>Upload Time</th>
-                            <td>${data.upload_time}</td>
-                        </tr>
-                        <tr>
-                            <th>Wind Speed</th>
-                            <td>${data.wind_speed} kt</td>
-                        </tr>
-                        <tr>
-                            <th>Intensity</th>
-                            <td>${data.intensity}</td>
-                        </tr>
-                        <tr>
-                            <th>Latitude</th>
-                            <td>${data.latitude}</td>
-                        </tr>
-                        <tr>
-                            <th>Longitude</th>
-                            <td>${data.longitude}</td>
-                        </tr>
-                        </table>
-                        `,
-                });
+    // 绘制台风路径
+    function drawTyphoonPath(typhoonData) {
+        // 清除现有实体
+        viewer.entities.removeAll();
+        // 初始化坐标数组
+        let coordinates = [];
+
+        // 添加台风路径实体
+        typhoonData.forEach((data, index) => {
+            // 将当前点的经纬度添加到坐标数组中
+            coordinates.push(data.longitude);
+            coordinates.push(data.latitude);
+
+            // ... 其他代码
+            const hurricaneBillboard = viewer.entities.add({
+                id: `hurricane-${data.id}-${index}`,
+                position: Cesium.Cartesian3.fromDegrees(data.longitude, data.latitude),
+                billboard: {
+                    image: index === typhoonData.length - 1 ? "static/img/hurricane.png" : "static/img/hurricane_inactive.png",
+                    width: 64,
+                    height: 64,
+                    color: Cesium.Color.WHITE,
+                    scale: 1.5,
+                    verticalOrigin: Cesium.VerticalOrigin.CENTER,
+                    horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
+                    pixelOffset: new Cesium.Cartesian2(0, 0),
+                },
+                description: `<table>
+                <tr>
+                    <th>Name</th>
+                    <td>${data.name}</td>
+                </tr>
+                <tr>
+                    <th>Time</th>
+                    <td>${data.time}</td>
+                </tr>
+                <tr>
+                    <th>Upload Time</th>
+                    <td>${data.upload_time}</td>
+                </tr>
+                <tr>
+                    <th>Wind Speed</th>
+                    <td>${data.wind_speed} kt</td>
+                </tr>
+                <tr>
+                    <th>Intensity</th>
+                    <td>${data.intensity}</td>
+</tr>
+<tr>
+<th>Latitude</th>
+<td>${data.latitude}</td>
+</tr>
+<tr>
+<th>Longitude</th>
+<td>${data.longitude}</td>
+</tr>
+</table>`,
+            });
+            if (index === typhoonData.length - 1) {
                 // 旋转飓风图标
                 let rotation = 0;
                 viewer.scene.postRender.addEventListener(() => {
@@ -116,23 +154,32 @@ document.addEventListener("DOMContentLoaded", function () {
                     }
                     hurricaneBillboard.billboard.rotation = rotation;
                 });
+            }
+        });
 
-                const handler = new Cesium.ScreenSpaceEventHandler(viewer.canvas);
-                handler.setInputAction((event) => {
-                    const pickedObject = viewer.scene.pick(event.position);
-                    if (Cesium.defined(pickedObject) && Cesium.defined(pickedObject.id)) {
-                        viewer.selectedEntity = pickedObject.id;
-                    } else {
-                        viewer.selectedEntity = undefined;
-                    }
-                }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
-
-                // 将视图定位到台风位置
-                viewer.camera.flyTo({
-                    destination: Cesium.Cartesian3.fromDegrees(data.longitude, data.latitude, 1000000)
-                });
-            });
-    });
+        const handler = new Cesium.ScreenSpaceEventHandler(viewer.canvas);
+        handler.setInputAction((event) => {
+            const pickedObject = viewer.scene.pick(event.position);
+            if (Cesium.defined(pickedObject) && Cesium.defined(pickedObject.id)) {
+                viewer.selectedEntity = pickedObject.id;
+            } else {
+                viewer.selectedEntity = undefined;
+            }
+        }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+        // 添加台风轨迹线
+        viewer.entities.add({
+            polyline: {
+                positions: Cesium.Cartesian3.fromDegreesArray(coordinates),
+                width: 3,
+                material: Cesium.Color.RED.withAlpha(0.8),
+            },
+        });
+        // 将视图定位到台风路径的最新位置
+        const latestTyphoonData = typhoonData[typhoonData.length - 1];
+        viewer.camera.flyTo({
+            destination: Cesium.Cartesian3.fromDegrees(latestTyphoonData.longitude, latestTyphoonData.latitude, 1000000)
+        });
+    }
 
     // 打开上传台风模态框
     uploadBtn.addEventListener("click", () => {
@@ -154,7 +201,16 @@ document.addEventListener("DOMContentLoaded", function () {
         const predictionMethod = document.getElementById("predictionMethod").value;
         const imageInput1 = document.getElementById("imageInput1");
         const imageInput2 = document.getElementById("imageInput2");
-
+        // 类型检查
+        if (
+            isNaN(typhoonID) ||
+            isNaN(windSpeed) ||
+            isNaN(latitude) ||
+            isNaN(longitude)
+        ) {
+            alert("ID、风速、强度、经度和纬度必须为数字。");
+            return;
+        }
         // 创建表单数据对象
         const formData = new FormData();
         formData.append("typhoonID", typhoonID);

@@ -9,7 +9,7 @@ from utils.utils import (cvtColor, get_classes, letterbox_image,
 
 
 model = mobilenetv2(pretrained=False, num_classes=5)
-model.load_state_dict(torch.load('mbv2.pth'))
+model.load_state_dict(torch.load('models/single_channel.pth'))
 model.eval()
 
 
